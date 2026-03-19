@@ -1,0 +1,276 @@
+---
+title: "Make Countries Move - Global development"
+author: "Simon Larsen and Jesper Jensen"
+date: "19/03/2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+*getting the necessary packages*
+
+```{r libraries, echo = FALSE}
+# install.packages("gganimate")
+# install.packages("gifski")
+# install.packages("av")
+# install.packages("gapminder")
+library(tidyverse)
+library(gganimate)
+library(gifski)
+library(av)
+library(gapminder)
+```
+
+## Look at the data and tackle the tasks
+```{r}
+str(gapminder)
+unique(gapminder$year)
+head(gapminder)
+data(gapminder)
+
+```
+
+The dataset contains information on each country in the sampled year, its continent, life expectancy, population, and GDP per capita.
+
+**Let's plot all the countries in 1952.**
+```{r 1957}
+theme_set(theme_bw())  # set theme to white background for better visibility
+
+options(scipen = 999)
+
+ggplot(subset(gapminder, year == 1952), aes(gdpPercap, lifeExp, size = pop/1000000)) +
+  geom_point(aes(colour = continent)) +
+  labs(x="GDP per capita",
+       y="Expectet lifetime")+
+  scale_x_log10() +
+  ggtitle("World in 1952")
+```
+
+...
+
+**We see an interesting spread with an outlier to the right. Explore who it is so you can answer question 2 below!*
+
+
+**Next, you can generate a similar plot for 2007 and compare the differences**
+```{r 2007}
+ggplot(subset(gapminder, year == 2007), aes(gdpPercap, lifeExp, size = pop)) +
+  geom_point() +
+  scale_x_log10() +
+  ggtitle("Figure 02")
+
+ggplot(subset(gapminder, year == 2007), aes(gdpPercap, lifeExp, size = pop/1000000)) +
+  geom_point(aes(colour = continent)) +
+  labs(x="GDP per capita",
+       y="Expectet lifetime")+
+  scale_x_log10() +
+  ggtitle("World in 2007")
+```
+
+...
+
+
+
+### Questions for the static figures:
+
+1. *Answer: why does it make sense to have a log10 scale (`scale_x_log10()`) on the x axis?* 
+
+The log10 scale is useful when working with values that span several orders of magnitude. In the case of GDP per capita, countries range from approximately 300 to 40,000 USD. Without using a log scale, low-income countries would be compressed on the left side of the plot, making the patterns we are looking for invisible. Log-transformed axes therefore make it easier to compare relative differences and identify patterns in inequality.
+
+
+2. *Answer: In Figure 1: Who is the outlier (the richest country in 1952) far right on the x axis?* 
+
+Through an analysis of our gapminder dataset, we can conclude and identify that Kuwait was the richest country in 1952, measured by GDP per capita. This result was obtained using the pipeline above, which showed Kuwait as the first country in the sorted list.
+
+
+```{r}
+library(tidyverse)
+
+gapminder %>%
+  filter(year == 1952) %>%
+  arrange(desc(gdpPercap)) %>%
+  slice(1)
+
+```
+
+
+
+3. *Fix Figures 1 and 2: Differentiate the **continents** 
+
+We improved Figures 1 and 2 by making the following changes:
+ Color-coding continents: color = continent in aes()
+ Changing axis labels: labs(x = "GDP per capita", y = "Expected lifetime")
+ Replacing scientific notation with regular whole numbers by running this line of code before plotting: options(scipen = 999)
+The improved figures provide a much clearer, more informative, and analytically useful representation of global development, as it becomes easier to observe continental differences and compare values. Additionally, it is now clear what the x- and y-axes represent.
+
+
+4. *Answer: What are the five richest countries in the world in 2007?*
+
+This task can be solved in almost the same way as question 2.
+We once again use the pipeline above, but replace 1952 with 2007, and in the slice() function we write (1:5) instead of 1.
+
+
+```{r}
+library(tidyverse)
+
+gapminder %>%
+  filter(year == 2007) %>%
+  arrange(desc(gdpPercap)) %>%
+  slice(1:5)
+```
+
+The five richest countries in 2007 were therefore:
+ Norway
+ Kuwait
+ Singapore
+ USA
+ Ireland
+
+
+##  Make it move!
+
+
+
+**There are *two* ways of animating the gapminder ggplot.**
+
+### Option 1: Animate using transition_states() 
+
+The first step is to create the object-to-be-animated
+```{r anim1 start}
+library(gapminder)
+library(ggplot2)
+options(scipen = 999)
+
+anim <- ggplot(gapminder, aes(gdpPercap, lifeExp, size = pop,colour = continent)) +
+  geom_point() +
+  labs(x="GDP per capita",
+       y="Expectet lifetime")+
+  scale_x_log10() +
+  ggtitle("World from 1952 to 2007")  # convert x to log scale
+anim
+```
+
+...
+
+This plot collates all the points across time. The next step is to split it into years and animate it. This may take some time, depending on the processing power of your computer (and other things you are asking it to do). Beware that the animation might appear in the bottom right 'Viewer' pane, not in this rmd preview. You need to `knit` the document to get the visual inside an html file.
+
+```{r anim1}
+
+anim + transition_states(year, 
+                      transition_length = 1,
+                      state_length = 1)
+
+```
+...
+
+
+### Option 2 Animate using transition_time()
+This option smooths the transition between different 'frames', because it interpolates and adds transitional years where there are gaps in the timeseries data.
+
+```{r anim2}
+library(gapminder)
+library(ggplot2)
+options(scipen = 999)
+
+
+
+anim2 <- ggplot(gapminder,
+                aes(gdpPercap, lifeExp, size = pop, colour = continent)) +
+  geom_point() +
+  labs(
+    x = "GDP per capita",
+    y = "Expected lifetime",
+    title = "World from 1952 to 2007\nYear: {frame_time}"
+  ) +
+  scale_x_log10() +
+  theme(
+    plot.margin = margin(t = 40, r = 10, b = 10, l = 10),
+    plot.title = element_text(size = 18)
+  ) +
+  transition_time(year)
+
+anim2
+
+```
+
+The much smoother movement in Option 2 will be much more noticeable if you add a title to the chart, that will page through the years corresponding to each frame.
+
+Now, choose one of the animation options and get it to work. You may need to troubleshoot your installation of `gganimate` and other packages 
+
+### Tasks for the animations:
+
+5. *Can you add a title to one or both of the animations above that will change* 
+ *in sync with the animation?* *(**Hint**: search labeling for `transition_states()` and `transition_time()` functions respectively)*
+ 
+ We have added a dynamic/animated title to “animation 2”. By closer inspection, it can be seen that the function transition_time() has been added to the plot, which allows the year in the title to update dynamically.
+
+
+
+6. *Can you made the axes' labels and units more readable? Consider expanding the abbreviated labels as well as the scientific notation in the legend and x axis to whole numbers. Also, differentiate the countries from different continents by color*
+
+
+This can easily be done, for example by using the function plot.title = element_text(size = 18). This function increases the text size, making it more readable and improving the overall user experience.
+
+
+
+### Final Question
+7. **Is the world a better place today than it was in the year you were born?** *Answer this question using the gapminder data.  Define better either as more prosperous, more free, more healthy, or suggest another measure that you can get from gapminder. Submit a 250 word answer with an illustration to Brightspace. Include a URL in your Brightspace submission that links to the coded solutions in Github. [Hint: if you wish to have more data than is in the filtered gapminder, you can load either the `gapminder_unfiltered` dataset or download more historical data at https://www.gapminder.org/data/ ]*
+
+When addressing the question of whether the world is a better place today compared to the year we were born (2003), the answer is clearly yes. This can be observed across several important parameters, most notably the development in global life expectancy from 2003 to 2026. Life expectancy is a key indicator of human well-being, as it reflects the quality of healthcare systems, access to treatment, and general social and economic living conditions.
+Using the dataset “lex.csv", which contains annual estimates for all countries in the world, I conducted a specific analysis in RStudio focusing on two very different countries: Denmark and Malawi.
+In our birth year, 2003, global life expectancy was significantly lower than it is today, especially in low-income countries in Africa and Asia. Denmark had a life expectancy of 77.67 years in 2003, while Malawi was as low as 47.37 years. This large difference clearly illustrates global inequalities in health and living conditions.
+When comparing these figures to developments up to 2026, a significant improvement can be observed in both countries. Denmark has increased to 82.16 years, while Malawi has experienced a dramatic rise to 66.43 years—an increase of more than 19 years. This analysis was calculated directly in RStudio using data from “lex.csv.”
+This positive development can be attributed to medical advancements, global vaccination programs, reductions in child mortality, and improved access to healthcare. Although some countries still face stagnation or decline, this does not change the overall picture: the world’s population lives longer, healthier, and more stable lives in 2026 than in 2003.
+
+
+
+```{r}
+library(tidyverse)
+
+lex <- read.csv("data/lex.csv")
+
+colnames(lex) <- gsub("^X", "", colnames(lex))
+
+# 3. Smelt årstallene om til langt format
+lex_long <- lex %>%
+  pivot_longer(
+    cols = -(geo:name),      # alt undtagen de to første kolonner
+    names_to = "year",
+    values_to = "lifeExp"
+  ) %>%
+  mutate(
+    year = as.integer(year),
+    lifeExp = as.numeric(lifeExp)
+  )
+
+compare <- lex_long %>%
+  filter(name %in% c("Denmark", "Malawi"),
+     	year >= 2003, year <= 2026)
+
+
+ggplot(compare, aes(x = year, y = lifeExp, color = name)) +
+  geom_line(linewidth = 1.4) +
+  geom_point(size = 3) +
+  labs(
+	title = "Life expectancy development in Denamrk and Malawi(2003–2026)",
+	x = "Year",
+	y = "life expectancy (Year)",
+	color = "Land"
+  ) +
+  scale_color_manual(values = c("Denmark" = "#1F78B4",
+                            	"Malawi" = "#E31A1C")) +
+  theme_minimal(base_size = 14)
+
+
+compare_2003_2026 <- lex_long %>%
+  filter(name %in% c("Denmark", "Malawi"),
+     	year %in% c(2003, 2026))
+
+compare_2003_2026
+
+
+
+```
+
+
